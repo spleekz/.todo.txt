@@ -18,7 +18,7 @@ fs.readFile( filePath, 'utf-8', ( err, data ) => {
 	const fileTextLines = fileText.split( '\n' )
 
 	const doneStartLine = fileTextLines.reduce( ( acc, line, i ) => {
-		if ( line.toLowerCase().includes( "* сделано *" ) ) {
+		if ( line.includes( "- * " ) && line.includes( ' * -' )  ) {
 			acc = i
 		}
 		return acc
