@@ -1,14 +1,103 @@
 const fs = require( 'fs' )
 
-const isBetween = ( target, a, b ) => {
-	return target >= a && target <= b
+const activeTaskSymbol = '—'
+const doneTaskSymbol = '#'
+
+// fns
+
+const linesIncludes = ( lines, value ) => {
+	return lines.some( ( line ) => {
+		return line.includes( value )
+	} )
 }
 
+const getTask = ( type, textLines, index ) => {
+	const idSymbol = type === 'active' ? activeTaskSymbol : doneTaskSymbol
+	const startIdSymbolIndex = type === 'active' ? 0 : 1
+
+	const checkFromTaskBegining = ( beginLineIndex, sourceIndex ) => {
+		var start
+		var end
+
+		const nextEmptyLineIndex = textLines.findIndex( ( line, i ) => {
+			if ( i >= beginLineIndex ) {
+				return !line.length
+			}
+			return false
+		} )
+
+		if ( sourceIndex !== undefined && sourceIndex >= nextEmptyLineIndex ) {
+			return false
+		}
+
+		const linesBetweenTargetAndNextEmpty = textLines.slice( beginLineIndex + 1, nextEmptyLineIndex )
+
+		if ( !linesIncludes( linesBetweenTargetAndNextEmpty, idSymbol ) ) {
+			if ( linesBetweenTargetAndNextEmpty.every( ( line ) => line[ startIdSymbolIndex ] === '\t' ) ) {
+				start = beginLineIndex
+				end = nextEmptyLineIndex - 1
+
+				return [ start, end ]
+			}
+		}
+
+		return false
+	}
+
+	var taskRange = false
+
+	if ( textLines[ index ].indexOf( `${ idSymbol }\t` ) === startIdSymbolIndex ) {
+		taskRange = checkFromTaskBegining( index )
+	} else {
+		var closeIdSymbolLineIndex = textLines.slice().reverse().findIndex( ( line, i ) => {
+			const nativeIndex = textLines.length - 1 - i
+			if ( nativeIndex < index ) {
+				if ( line.indexOf( `${ idSymbol }\t` ) === startIdSymbolIndex ) {
+					return true
+				}
+			}
+		} )
+		closeIdSymbolLineIndex = textLines.length - 1 - closeIdSymbolLineIndex
+		taskRange = checkFromTaskBegining( closeIdSymbolLineIndex, index )
+	}
+
+	if ( taskRange ) {
+		const title = textLines
+		.slice( taskRange[ 0 ], taskRange[ 1 ] + 1 )
+		.join( '\n' )
+		.slice( 2 )
+
+		return { title, range: taskRange }
+	}
+
+	return false
+
+}
+
+const getDoneSectionTitleLineIndex = ( textLines ) => {
+	return textLines.findIndex( ( line ) => {
+		return ( line.includes( '- * ' ) && line.includes( ' * -' ) )
+	} )
+}
+
+const getFirstFullDoneTaskIndex = ( textLines ) => {
+	const doneSectionTitleLineIndex = getDoneSectionTitleLineIndex( textLines )
+
+	return textLines.findIndex( ( _, i ) => {
+		if ( i > doneSectionTitleLineIndex ) {
+			return getTask( 'done', textLines, i ) !== false
+		}
+		return false
+	} )
+}
+
+// run
 const filePath = process.argv[ 2 ]
 const targetLine = process.argv[ 3 ] - 1
 const operationType = process.argv[ 4 ]
 
 fs.readFile( filePath, 'utf-8', ( err, data ) => {
+
 	if ( err ) {
 		console.log( err )
 		return
@@ -18,94 +107,63 @@ fs.readFile( filePath, 'utf-8', ( err, data ) => {
 
 	const fileTextLines = fileText.split( '\n' )
 
-	const doneStartLine = fileTextLines.reduce( ( acc, line, i ) => {
-		if ( line.includes( "- * " ) && line.includes( ' * -' )  ) {
-			acc = i
-		}
-		return acc
-	}, 0 )
-
-	var isFind = false
-	const inProgressStartLine = fileTextLines.reduce( ( acc, line, lineIndex ) => {
-		if ( !isFind ) {
-			const pos = line.indexOf( '—\t' )
-			if ( pos === 0 ) {
-				acc = lineIndex
-				isFind = true
-			}
-		}
-		return acc
-	}, 0 )
-
-	const inProgressEndLine = doneStartLine - 2
-
-	const tasks = []
-
-	var taskStartLine = inProgressStartLine
-	var taskEndLine = inProgressEndLine
-	for ( var i = inProgressStartLine; i <= inProgressEndLine; ++ i ) {
-		if ( i <= inProgressEndLine - 1 ) {
-			if ( fileTextLines[ i + 1 ].length === 0 ) {
-				taskEndLine = i
-
-				const taskTitle = fileTextLines.reduce( ( acc, line, index ) => {
-					if ( index >= taskStartLine && index <= taskEndLine ) {
-						acc += line
-					}
-					return acc
-				}, '' )
-
-				tasks.push( { title: taskTitle, range: [ taskStartLine, taskEndLine ] } )
-
-				taskStartLine = taskEndLine + 2
-			}
-		}
-	}
-
-
 	if ( operationType === 'done' ) {
 
-		const targetTask = tasks.reduce( ( acc, task ) => {
-			if ( isBetween( targetLine, task.range[ 0 ], task.range[ 1 ] ) ) {
-				acc = task
-			}
-			return acc
-		}, null )
+		const targetTask = getTask( 'active', fileTextLines, targetLine )
 
-		if ( targetTask === null ) {
+		if ( !targetTask ) {
 			return
 		}
 
-		targetTask.title = `#${ targetTask.title.slice( 1 ) }`
+		const doneSectionTitleLineIndex = getDoneSectionTitleLineIndex( fileTextLines )
 
-		targetTask.title = targetTask.title.split( '' ).map( ( s, i ) => {
-			if ( i === 0 ) {
-				return '\t' + s
-			}
-			if ( s === '\t' ) {
-				if ( i !== 1 ) {
-					var newS
-					if ( i !== 0 && targetTask.title[ i - 1 ] !== '\t' ) {
-						newS = '\n\t'
-					}
-					if ( i < targetTask.title.length - 1 && targetTask.title[ i + 1 ] !== '\t' ) {
-						newS += '\t'
-					}
-					return newS
-				}
-			}
-			return s
-		} ).join( '' )
+		var injectPlace = getFirstFullDoneTaskIndex( fileTextLines )
+
+		if ( injectPlace === -1 ) {
+			injectPlace = doneSectionTitleLineIndex + 1
+		} else {
+			injectPlace = injectPlace - 1
+		}
+
+		const targetTaskDoneTitle = `${ doneTaskSymbol }${ targetTask.title }`
+			.split( '\n' )
+			.map( ( line ) => {
+				return line
+					.split( '' )
+					.map( ( s, i ) => {
+						if ( i === 0 ) {
+							return '\t' + s
+						}
+						if ( i === 1 && line[ i - 1 ] === doneTaskSymbol ) {
+							return '\t' + s
+						}
+						return s
+					} )
+					.join( '' )
+			} )
+			.join( '\n' )
 
 		const beforeTask = fileTextLines.slice( 0, targetTask.range[ 0 ] ).join( '\n' )
-		const afterTask = fileTextLines.slice( targetTask.range[ 1 ] + 1, doneStartLine ).join( '\n' )
+		const afterTask = fileTextLines.slice( targetTask.range[ 1 ] + 1, doneSectionTitleLineIndex ).join( '\n' )
 
-		const beforeInjectPlace = beforeTask + afterTask + '\n' + fileTextLines[ doneStartLine ]
-		const afterInjectPlace = fileTextLines.splice( doneStartLine + 1 ).join( '\n' )
+		const beforeInject = fileTextLines.slice( doneSectionTitleLineIndex, injectPlace ).join( '\n' )
+		const afterInject = fileTextLines.slice( injectPlace ).join( '\n' )
 
-		const newContent = beforeInjectPlace + '\n\n' + targetTask.title + '\n' + afterInjectPlace
+		const newFileText =
+			beforeTask
+			+ afterTask
 
-		fs.writeFile( filePath, newContent, ( err ) => {
+			+ '\n'
+			+ beforeInject
+			+ '\n'
+
+			+ '\n'
+			+ targetTaskDoneTitle
+			+ '\n'
+
+			+ afterInject
+
+		fs.writeFile( filePath, newFileText, ( err ) => {
 			if ( err ) {
 				console.log( err )
 				return
