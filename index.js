@@ -1,71 +1,69 @@
 const fs = require( 'fs' )
 
-
 const isBetween = ( target, a, b ) => {
 	return target >= a && target <= b
 }
-
 
 const filePath = process.argv[ 2 ]
 const targetLine = process.argv[ 3 ] - 1
 const operationType = process.argv[ 4 ]
 
-// mark task as done
-if ( operationType === 'done' ) {
+fs.readFile( filePath, 'utf-8', ( err, data ) => {
+	if ( err ) {
+		console.log( err )
+		return
+	}
 
-	fs.readFile( filePath, 'utf-8', ( err, data ) => {
-		if ( err ) {
-			console.log( err )
-			return
+	const fileText = data
+
+	const fileTextLines = fileText.split( '\n' )
+
+	const doneStartLine = fileTextLines.reduce( ( acc, line, i ) => {
+		if ( line.includes( "- * " ) && line.includes( ' * -' )  ) {
+			acc = i
 		}
+		return acc
+	}, 0 )
 
-		const fileText = data
-
-		const fileTextLines = fileText.split( '\n' )
-
-		const doneStartLine = fileTextLines.reduce( ( acc, line, i ) => {
-			if ( line.includes( "- * " ) && line.includes( ' * -' )  ) {
-				acc = i
-			}
-			return acc
-		}, 0 )
-
-		var isFind = false
-		const inProgressStartLine = fileTextLines.reduce( ( acc, line, lineIndex ) => {
-			if ( !isFind ) {
-				const pos = line.indexOf( '—\t' )
-				if ( pos === 0 ) {
-					acc = lineIndex
-					isFind = true
-				}
-			}
-			return acc
-		}, 0 )
-
-		const inProgressEndLine = doneStartLine - 2
-
-		const tasks = []
-
-		var taskStartLine = inProgressStartLine
-		var taskEndLine = inProgressEndLine
-		for ( var i = inProgressStartLine; i <= inProgressEndLine; ++ i ) {
-			if ( i <= inProgressEndLine - 1 ) {
-				if ( fileTextLines[ i + 1 ].length === 0 ) {
-					taskEndLine = i
-
-					const taskTitle = fileTextLines.reduce( ( acc, line, index ) => {
-						if ( index >= taskStartLine && index <= taskEndLine ) {
-							acc += line
-						}
-						return acc
-					}, '' )
-
-					tasks.push( { title: taskTitle, range: [ taskStartLine, taskEndLine ] } )
-
-					taskStartLine = taskEndLine + 2
-				}
+	var isFind = false
+	const inProgressStartLine = fileTextLines.reduce( ( acc, line, lineIndex ) => {
+		if ( !isFind ) {
+			const pos = line.indexOf( '—\t' )
+			if ( pos === 0 ) {
+				acc = lineIndex
+				isFind = true
 			}
 		}
+		return acc
+	}, 0 )
+
+	const inProgressEndLine = doneStartLine - 2
+
+	const tasks = []
+
+	var taskStartLine = inProgressStartLine
+	var taskEndLine = inProgressEndLine
+	for ( var i = inProgressStartLine; i <= inProgressEndLine; ++ i ) {
+		if ( i <= inProgressEndLine - 1 ) {
+			if ( fileTextLines[ i + 1 ].length === 0 ) {
+				taskEndLine = i
+
+				const taskTitle = fileTextLines.reduce( ( acc, line, index ) => {
+					if ( index >= taskStartLine && index <= taskEndLine ) {
+						acc += line
+					}
+					return acc
+				}, '' )
+
+				tasks.push( { title: taskTitle, range: [ taskStartLine, taskEndLine ] } )
+
+				taskStartLine = taskEndLine + 2
+			}
+		}
+	}
+
+
+	if ( operationType === 'done' ) {
 
 		const targetTask = tasks.reduce( ( acc, task ) => {
 			if ( isBetween( targetLine, task.range[ 0 ], task.range[ 1 ] ) ) {
@@ -114,8 +112,7 @@ if ( operationType === 'done' ) {
 			}
 		} )
 
-	} )
+	}
 
-
-}
+} )
 
