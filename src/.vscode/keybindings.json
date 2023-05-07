@@ -1,0 +1,26 @@
+// поместите эти сочетания клавиш в свой файл keybindings.json
+[
+
+	{
+		"key": "your_key",
+		"when": "resourceFilename =~ /\\.todo\\.txt$/ && editorTextFocus",
+		"command": "workbench.action.tasks.runTask",
+		"args" : "mark-todo-task-as-done"
+	},
+	{
+		"key": "your_key",
+		"when": "resourceFilename =~ /\\.todo\\.txt$/ && editorTextFocus",
+		"command": "workbench.action.tasks.runTask",
+		"args" : "mark-todo-task-as-undone"
+	},
+
+	{
+		"key": "your_key",
+		"when": "resourceFilename =~ /\\.todo\\.txt$/ && editorTextFocus",
+		"command": "editor.action.insertSnippet",
+		"args": {
+			"name": "new-.todo.txt-task"
+		}
+	}
+
+]

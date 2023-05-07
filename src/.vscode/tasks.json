@@ -1,0 +1,30 @@
+{
+	// See https://go.microsoft.com/fwlink/?LinkId=733558
+	// for the documentation about the tasks.json format
+	"version": "2.0.0",
+	"tasks": [
+
+		{
+			"label": "mark-todo-task-as-done",
+			"type": "shell",
+			"command": "node path\\to\\index.js \"${file}\" \"${lineNumber}\" \"done\"",
+			"presentation": {
+				"reveal": "never",
+				"focus": false,
+				"close": true,
+			}
+		},
+
+		{
+			"label": "mark-todo-task-as-undone",
+			"type": "shell",
+			"command": "node path\\to\\index.js \"${file}\" \"${lineNumber}\" \"undone\"",
+			"presentation": {
+				"reveal": "never",
+				"focus": false,
+				"close": true,
+			}
+		}
+
+	]
+}
