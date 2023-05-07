@@ -11,6 +11,7 @@ const linesIncludes = ( lines, value ) => {
 	} )
 }
 
+// если таска - вернёт её title и range, иначе - false
 const getTask = ( type, textLines, index ) => {
 	const idSymbol = type === 'active' ? activeTaskSymbol : doneTaskSymbol
 	const startIdSymbolIndex = type === 'active' ? 0 : 1
@@ -64,8 +65,13 @@ const getTask = ( type, textLines, index ) => {
 	if ( taskRange ) {
 		const title = textLines
 		.slice( taskRange[ 0 ], taskRange[ 1 ] + 1 )
+		.map( ( line, i ) => {
+			if ( i === 0 ) {
+				return line.split( '' ).filter( s => s !== idSymbol && s !== '\t' ).join( '' )
+			}
+			return line
+		} )
 		.join( '\n' )
-		.slice( 2 )
 
 		return { title, range: taskRange }
 	}
@@ -74,15 +80,19 @@ const getTask = ( type, textLines, index ) => {
 
 }
 
+const getFirstActiveTaskLineIndex = ( textLines ) => {
+	return textLines.findIndex( ( _, i ) => {
+		return getTask( 'active', textLines, i )
+	} )
+}
+
 const getDoneSectionTitleLineIndex = ( textLines ) => {
 	return textLines.findIndex( ( line ) => {
 		return ( line.includes( '- * ' ) && line.includes( ' * -' ) )
 	} )
 }
 
-const getFirstFullDoneTaskIndex = ( textLines ) => {
-	const doneSectionTitleLineIndex = getDoneSectionTitleLineIndex( textLines )
-
+const getFirstFullDoneTaskLineIndex = ( textLines, doneSectionTitleLineIndex ) => {
 	return textLines.findIndex( ( _, i ) => {
 		if ( i > doneSectionTitleLineIndex ) {
 			return getTask( 'done', textLines, i ) !== false
@@ -90,6 +100,11 @@ const getFirstFullDoneTaskIndex = ( textLines ) => {
 		return false
 	} )
 }
+
+const getFirstEmptyLineInFile = ( textLines ) => {
+	return textLines.findIndex( ( line ) => !line )
+}
+
 
 // run
 const filePath = process.argv[ 2 ]
@@ -107,6 +122,11 @@ fs.readFile( filePath, 'utf-8', ( err, data ) => {
 
 	const fileTextLines = fileText.split( '\n' )
 
+	const doneSectionTitleLineIndex = getDoneSectionTitleLineIndex( fileTextLines )
+
+	var newFileText
+
+	// done
 	if ( operationType === 'done' ) {
 
 		const targetTask = getTask( 'active', fileTextLines, targetLine )
@@ -115,9 +135,7 @@ fs.readFile( filePath, 'utf-8', ( err, data ) => {
 			return
 		}
 
-		const doneSectionTitleLineIndex = getDoneSectionTitleLineIndex( fileTextLines )
-
-		var injectPlace = getFirstFullDoneTaskIndex( fileTextLines )
+		var injectPlace = getFirstFullDoneTaskLineIndex( fileTextLines, doneSectionTitleLineIndex )
 
 		if ( injectPlace === -1 ) {
 			injectPlace = doneSectionTitleLineIndex + 1
@@ -149,7 +167,7 @@ fs.readFile( filePath, 'utf-8', ( err, data ) => {
 		const beforeInject = fileTextLines.slice( doneSectionTitleLineIndex, injectPlace ).join( '\n' )
 		const afterInject = fileTextLines.slice( injectPlace ).join( '\n' )
 
-		const newFileText =
+		newFileText =
 			beforeTask
 			+ afterTask
 
@@ -163,14 +181,76 @@ fs.readFile( filePath, 'utf-8', ( err, data ) => {
 
 			+ afterInject
 
-		fs.writeFile( filePath, newFileText, ( err ) => {
-			if ( err ) {
-				console.log( err )
-				return
-			}
-		} )
+	}
+
+	// undone
+	if ( operationType === 'undone' ) {
+
+		const targetTask = getTask( 'done', fileTextLines, targetLine )
+
+		var injectPlace = getFirstActiveTaskLineIndex( fileTextLines )
+		var isInjectInFirstEmptyLine = false
+
+		if ( injectPlace === -1 ) {
+			isInjectInFirstEmptyLine = true
+			injectPlace = getFirstEmptyLineInFile( fileTextLines )
+		}
+
+		const targetTaskActiveTitle = `${ activeTaskSymbol }${ targetTask.title }`
+			.split( '\n' )
+			.map( ( line, lineIndex ) => {
+				return line
+					.split( '' )
+					.map( ( s, i ) => {
+						if ( i === 0 ) {
+							if ( lineIndex !== 0 ) {
+								// убираем по одному табу во всех не первых строках
+								return ''
+							}
+						}
+
+						if ( i !== 0 ) {
+							if ( line[ i - 1 ] === activeTaskSymbol ) {
+								return '\t' + s
+							}
+						}
+
+						return s
+					} )
+					.join( '' )
+			} )
+			.join( '\n' )
+
+
+		const beforeInject = fileTextLines.slice( 0, injectPlace ).join( '\n' )
+		const afterInject = fileTextLines.slice( injectPlace, doneSectionTitleLineIndex ).join( '\n' )
+
+		const beforeTask = fileTextLines.slice( doneSectionTitleLineIndex, targetTask.range[ 0 ] ).join( '\n' )
+		const afterTask = fileTextLines.slice( targetTask.range[ 1 ] + 1 ).join( '\n' )
+
+		newFileText =
+			beforeInject
+			+ ( isInjectInFirstEmptyLine ? '\n' : '' )
+
+			+ '\n'
+			+ targetTaskActiveTitle
+			+ '\n'
+			+ ( !isInjectInFirstEmptyLine ? '\n' : '' )
+
+			+ afterInject
+			+ '\n'
+
+			+ beforeTask
+			+ afterTask
 
 	}
+
+	fs.writeFile( filePath, newFileText, ( err ) => {
+		if ( err ) {
+			console.log( err )
+			return
+		}
+	} )
 
 } )
 
