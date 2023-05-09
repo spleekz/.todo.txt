@@ -1,17 +1,19 @@
-import { doneTaskMarker } from '../markers.js'
-import { getFirstFullDoneTaskLineIndex, getTask } from '../parse-core.js'
+import { getDoneSectionTitleLineIndex, getFirstFullDoneTaskLineIndex, getTask } from '../parse/core.js'
+import { doneTaskMarker } from '../parse/task.js'
 
-export const markTaskDone = ( fileTextLines, targetLine, doneSectionTitleLineIndex ) => {
+export const markTaskDone = ( text, targetLine ) => {
 
-	const targetTask = getTask( 'active', fileTextLines, targetLine )
+	const targetTask = getTask( 'active', text, targetLine )
 
 	if ( !targetTask ) {
 		return
 	}
 
-	var injectPlace = getFirstFullDoneTaskLineIndex( fileTextLines, doneSectionTitleLineIndex )
+	const doneSectionTitleLineIndex = getDoneSectionTitleLineIndex( text )
 
-	if ( injectPlace === -1 ) {
+	var injectPlace = getFirstFullDoneTaskLineIndex( text )
+
+	if ( injectPlace === null ) {
 		injectPlace = doneSectionTitleLineIndex + 1
 	} else {
 		injectPlace = injectPlace - 1
@@ -35,11 +37,13 @@ export const markTaskDone = ( fileTextLines, targetLine, doneSectionTitleLineInd
 		} )
 		.join( '\n' )
 
-	const beforeTask = fileTextLines.slice( 0, targetTask.range[ 0 ] ).join( '\n' )
-	const afterTask = fileTextLines.slice( targetTask.range[ 1 ] + 1, doneSectionTitleLineIndex ).join( '\n' )
+	const textLines = text.split( '\n' )
 
-	const beforeInject = fileTextLines.slice( doneSectionTitleLineIndex, injectPlace ).join( '\n' )
-	const afterInject = fileTextLines.slice( injectPlace ).join( '\n' )
+	const beforeTask = textLines.slice( 0, targetTask.range[ 0 ] ).join( '\n' )
+	const afterTask = textLines.slice( targetTask.range[ 1 ] + 1, doneSectionTitleLineIndex ).join( '\n' )
+
+	const beforeInject = textLines.slice( doneSectionTitleLineIndex, injectPlace ).join( '\n' )
+	const afterInject = textLines.slice( injectPlace ).join( '\n' )
 
 	const newFileText =
 		beforeTask
@@ -56,4 +60,5 @@ export const markTaskDone = ( fileTextLines, targetLine, doneSectionTitleLineInd
 		+ afterInject
 
 	return newFileText
+
 }

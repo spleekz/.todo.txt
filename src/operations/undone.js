@@ -1,16 +1,18 @@
-import { activeTaskMarker } from '../markers.js'
-import { getFirstActiveTaskLineIndex, getFirstEmptyLineInFile, getTask } from '../parse-core.js'
+import { getDoneSectionTitleLineIndex, getFirstActiveTaskLineIndex, getFirstEmptyLine, getTask } from '../parse/core.js'
+import { activeTaskMarker } from '../parse/task.js'
 
-export const markTaskUndone = ( fileTextLines, targetLine, doneSectionTitleLineIndex ) => {
+export const markTaskUndone = ( text, targetLine ) => {
 
-	const targetTask = getTask( 'done', fileTextLines, targetLine )
+	const targetTask = getTask( 'done', text, targetLine )
 
-	var injectPlace = getFirstActiveTaskLineIndex( fileTextLines )
+	const doneSectionTitleLineIndex = getDoneSectionTitleLineIndex( text )
+
+	var injectPlace = getFirstActiveTaskLineIndex( text )
 	var isInjectInFirstEmptyLine = false
 
-	if ( injectPlace === -1 ) {
+	if ( injectPlace === null ) {
 		isInjectInFirstEmptyLine = true
-		injectPlace = getFirstEmptyLineInFile( fileTextLines )
+		injectPlace = getFirstEmptyLine( text )
 	}
 
 	const targetTaskActiveTitle = `${ activeTaskMarker }${ targetTask.title }`
@@ -39,11 +41,13 @@ export const markTaskUndone = ( fileTextLines, targetLine, doneSectionTitleLineI
 		.join( '\n' )
 
 
-	const beforeInject = fileTextLines.slice( 0, injectPlace ).join( '\n' )
-	const afterInject = fileTextLines.slice( injectPlace, doneSectionTitleLineIndex ).join( '\n' )
+	const textLines = text.split( '\n' )
 
-	const beforeTask = fileTextLines.slice( doneSectionTitleLineIndex, targetTask.range[ 0 ] ).join( '\n' )
-	const afterTask = fileTextLines.slice( targetTask.range[ 1 ] + 1 ).join( '\n' )
+	const beforeInject = textLines.slice( 0, injectPlace ).join( '\n' )
+	const afterInject = textLines.slice( injectPlace, doneSectionTitleLineIndex ).join( '\n' )
+
+	const beforeTask = textLines.slice( doneSectionTitleLineIndex, targetTask.range[ 0 ] ).join( '\n' )
+	const afterTask = textLines.slice( targetTask.range[ 1 ] + 1 ).join( '\n' )
 
 	const newFileText =
 		beforeInject

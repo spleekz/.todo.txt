@@ -1,7 +1,6 @@
 import fs from 'fs'
 import { markTaskDone } from './operations/done.js'
 import { markTaskUndone } from './operations/undone.js'
-import { getDoneSectionTitleLineIndex } from './parse-core.js'
 
 const filePath = process.argv[ 2 ]
 const targetLine = process.argv[ 3 ] - 1
@@ -16,32 +15,32 @@ fs.readFile( filePath, 'utf-8', ( err, data ) => {
 
 	const fileText = data
 
-	const fileTextLines = fileText.split( '\n' )
-
-	const doneSectionTitleLineIndex = getDoneSectionTitleLineIndex( fileTextLines )
-
 	var newFileText
 
 	// done
 	if ( operationType === 'done' ) {
 
-		newFileText = markTaskDone( fileTextLines, targetLine, doneSectionTitleLineIndex )
+		newFileText = markTaskDone( fileText, targetLine )
 
 	}
 
 	// undone
 	if ( operationType === 'undone' ) {
 
-		newFileText = markTaskUndone( fileTextLines, targetLine, doneSectionTitleLineIndex )
+		newFileText = markTaskUndone( fileText, targetLine )
 
 	}
 
-	fs.writeFile( filePath, newFileText, ( err ) => {
-		if ( err ) {
-			console.log( err )
-			return
-		}
-	} )
+	if ( newFileText ) {
+
+		fs.writeFile( filePath, newFileText, ( err ) => {
+			if ( err ) {
+				console.log( err )
+				return
+			}
+		} )
+
+	}
 
 } )
 
